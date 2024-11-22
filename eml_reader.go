@@ -46,39 +46,50 @@ func ExtractEmlContent(ctx *dgctx.DgContext, srcPath string, dstPath string) (*E
 		Text:    envelope.Text,
 		Html:    envelope.HTML,
 	}
-
-	if len(envelope.Attachments) == 0 {
-		return ec, nil
-	}
 	_ = utils.CreateDir(dstPath)
 
-	var attachmentFiles []*os.File
-	for i, part := range envelope.Attachments {
+	var files []*os.File
+	var parts []*enmime.Part
+
+	if envelope.Root != nil {
+		parts = append(parts, envelope.Root)
+	}
+	if len(envelope.Attachments) > 0 {
+		parts = append(parts, envelope.Attachments...)
+	}
+	if len(envelope.Inlines) > 0 {
+		parts = append(parts, envelope.Inlines...)
+	}
+	if len(envelope.OtherParts) > 0 {
+		parts = append(parts, envelope.OtherParts...)
+	}
+
+	for i, part := range parts {
 		filename := part.FileName
 		if filename == "" {
-			filename = fmt.Sprintf("attachment_%d", i)
+			filename = fmt.Sprintf("email_part_%d", i)
 		}
 		filename = strings.ReplaceAll(filename, " ", "_")
 
-		attachmentFile, err := os.Create(path.Join(dstPath, filename))
+		emailFile, err := os.Create(path.Join(dstPath, filename))
 		if err != nil {
-			dglogger.Errorf(ctx, "failed to create file for attachment %d: %v", i, err)
+			dglogger.Errorf(ctx, "failed to create file for part %d: %v", i, err)
 			continue
 		}
-		attachmentFiles = append(attachmentFiles, attachmentFile)
+		files = append(files, emailFile)
 
-		_, err = io.Copy(attachmentFile, bytes.NewReader(part.Content))
+		_, err = io.Copy(emailFile, bytes.NewReader(part.Content))
 		if err != nil {
-			dglogger.Errorf(ctx, "failed to save attachment %d: %v", i, err)
+			dglogger.Errorf(ctx, "failed to save part file %d: %v", i, err)
 			continue
 		}
 
-		dglogger.Debugf(ctx, "saved attachment %d: %s", i, filename)
+		dglogger.Debugf(ctx, "saved part %d: %s", i, filename)
 	}
 
-	if len(attachmentFiles) > 0 {
-		for _, attachmentFile := range attachmentFiles {
-			_ = attachmentFile.Close()
+	if len(files) > 0 {
+		for _, emailFile := range files {
+			_ = emailFile.Close()
 		}
 	}
 
