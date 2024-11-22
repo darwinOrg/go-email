@@ -13,11 +13,20 @@ import (
 	"strings"
 )
 
-func ExtractEmlAttachments(ctx *dgctx.DgContext, srcPath string, dstPath string) error {
+type EmlContent struct {
+	Subject string `json:"subject"`
+	From    string `json:"from"`
+	To      string `json:"to"`
+	Date    string `json:"date"`
+	Text    string `json:"text"`
+	Html    string `json:"html"`
+}
+
+func ExtractEmlContent(ctx *dgctx.DgContext, srcPath string, dstPath string) (*EmlContent, error) {
 	file, err := os.Open(srcPath)
 	if err != nil {
 		dglogger.Errorf(ctx, "read eml file failed, err: %v", err)
-		return err
+		return nil, err
 	}
 	defer func() {
 		_ = file.Close()
@@ -26,12 +35,21 @@ func ExtractEmlAttachments(ctx *dgctx.DgContext, srcPath string, dstPath string)
 	envelope, err := enmime.ReadEnvelope(file)
 	if err != nil {
 		dglogger.Errorf(ctx, "read eml envelope failed, err: %v", err)
-		return err
-	}
-	if len(envelope.Attachments) == 0 {
-		return nil
+		return nil, err
 	}
 
+	ec := &EmlContent{
+		Subject: envelope.GetHeader("Subject"),
+		From:    envelope.GetHeader("From"),
+		To:      envelope.GetHeader("To"),
+		Date:    envelope.GetHeader("Date"),
+		Text:    envelope.Text,
+		Html:    envelope.HTML,
+	}
+
+	if len(envelope.Attachments) == 0 {
+		return ec, nil
+	}
 	_ = utils.CreateDir(dstPath)
 
 	var attachmentFiles []*os.File
@@ -64,5 +82,5 @@ func ExtractEmlAttachments(ctx *dgctx.DgContext, srcPath string, dstPath string)
 		}
 	}
 
-	return nil
+	return ec, nil
 }

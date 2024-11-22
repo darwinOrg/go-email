@@ -2,16 +2,18 @@ package email
 
 import (
 	dgctx "github.com/darwinOrg/go-common/context"
+	dglogger "github.com/darwinOrg/go-logger"
 	"os"
 	"testing"
 )
 
-func TestExtractEmlAttachments(t *testing.T) {
+func TestExtractEmlContent(t *testing.T) {
 	srcPath := os.Getenv("srcPath")
 	dstPath := os.Getenv("dstPath")
 
-	err := ExtractEmlAttachments(dgctx.SimpleDgContext(), srcPath, dstPath)
+	ec, err := ExtractEmlContent(dgctx.SimpleDgContext(), srcPath, dstPath)
 	if err != nil {
 		panic(err)
 	}
+	dglogger.Infof(dgctx.SimpleDgContext(), "ec: %v", ec)
 }
