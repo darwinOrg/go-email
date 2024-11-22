@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"strings"
 )
 
 func ExtractEmlAttachments(ctx *dgctx.DgContext, srcPath string, dstPath string) error {
@@ -39,6 +40,7 @@ func ExtractEmlAttachments(ctx *dgctx.DgContext, srcPath string, dstPath string)
 		if filename == "" {
 			filename = fmt.Sprintf("attachment_%d", i)
 		}
+		filename = strings.ReplaceAll(filename, " ", "_")
 
 		attachmentFile, err := os.Create(path.Join(dstPath, filename))
 		if err != nil {
