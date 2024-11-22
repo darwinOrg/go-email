@@ -2,7 +2,6 @@ package email
 
 import (
 	"bytes"
-	"fmt"
 	dgctx "github.com/darwinOrg/go-common/context"
 	"github.com/darwinOrg/go-common/utils"
 	dglogger "github.com/darwinOrg/go-logger"
@@ -67,10 +66,9 @@ func ExtractEmlContent(ctx *dgctx.DgContext, srcPath string, dstPath string) (*E
 	for i, part := range parts {
 		filename := part.FileName
 		if filename == "" {
-			filename = fmt.Sprintf("email_part_%d", i)
+			continue
 		}
 		filename = strings.ReplaceAll(filename, " ", "_")
-
 		emailFile, err := os.Create(path.Join(dstPath, filename))
 		if err != nil {
 			dglogger.Errorf(ctx, "failed to create file for part %d: %v", i, err)
