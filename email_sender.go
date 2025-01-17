@@ -35,14 +35,14 @@ func NewSendEmailClient(host string, port int, username string, password string)
 	return &SendEmailClient{dialer: dialer, UseMonitor: true}
 }
 
-func (sec *SendEmailClient) SendEmail(ctx *dgctx.DgContext, request *SendEmailRequest) error {
-	if sec.UseMonitor {
-		monitor.HttpClientCounter(sec.dialer.Host)
+func (s *SendEmailClient) SendEmail(ctx *dgctx.DgContext, request *SendEmailRequest) error {
+	if s.UseMonitor {
+		monitor.HttpClientCounter(s.dialer.Host)
 	}
 	start := time.Now().UnixMilli()
 
 	m := gomail.NewMessage()
-	m.SetHeader("From", sec.dialer.Username)
+	m.SetHeader("From", s.dialer.Username)
 	m.SetHeader("To", request.To...)
 	m.SetHeader("Subject", request.Subject)
 	m.SetBody("text/html", request.Content)
@@ -54,15 +54,15 @@ func (sec *SendEmailClient) SendEmail(ctx *dgctx.DgContext, request *SendEmailRe
 	}
 
 	requestJson, _ := json.Marshal(request)
-	err := sec.dialer.DialAndSend(m)
+	err := s.dialer.DialAndSend(m)
 	cost := time.Now().UnixMilli() - start
 
-	if sec.UseMonitor {
+	if s.UseMonitor {
 		e := "false"
 		if err != nil {
 			e = "true"
 		}
-		monitor.HttpClientDuration(sec.dialer.Host, e, cost)
+		monitor.HttpClientDuration(s.dialer.Host, e, cost)
 	}
 
 	dglogger.Infof(ctx, "send email: %s, cost: %d ms", requestJson, cost)
