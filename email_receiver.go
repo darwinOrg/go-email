@@ -16,6 +16,12 @@ import (
 	"time"
 )
 
+var (
+	fetchBasic  = []imap.FetchItem{imap.FetchEnvelope, imap.FetchUid}
+	bodySection = &imap.BodySectionName{}
+	fetchDetail = []imap.FetchItem{bodySection.FetchItem(), imap.FetchEnvelope, imap.FetchUid}
+)
+
 type ImapEmailClient struct {
 	server   string
 	username string
@@ -118,7 +124,7 @@ func (r *ImapEmailClient) SearchEmails(ctx *dgctx.DgContext, req *SearchEmailReq
 	messages := make(chan *imap.Message, 10)
 	done := make(chan error, 1)
 	go func() {
-		done <- r.client.Fetch(seqSet, []imap.FetchItem{imap.FetchAll}, messages)
+		done <- r.client.Fetch(seqSet, fetchDetail, messages)
 	}()
 
 	var emails []*ReceiveEmailDTO
@@ -205,13 +211,13 @@ func parseMessage(ctx *dgctx.DgContext, msg *imap.Message) (*ReceiveEmailDTO, er
 		switch h := p.Header.(type) {
 		case *mail.AttachmentHeader:
 			filename, _ := h.Filename()
-			emailDTO.Attachments = append(emailDTO.Attachments, filename)
 
 			randomLetter, _ := utils.RandomLetter(4)
 			outDir := path.Join(os.TempDir(), randomLetter)
 			_ = utils.CreateDir(outDir)
 
-			outFile, err := os.Create(path.Join(outDir, filename))
+			outPath := path.Join(outDir, filename)
+			outFile, err := os.Create(outPath)
 			if err != nil {
 				dglogger.Errorf(ctx, "create attachment file failed | filename: %s | err: %v", filename, err)
 				return nil, err
@@ -224,6 +230,8 @@ func parseMessage(ctx *dgctx.DgContext, msg *imap.Message) (*ReceiveEmailDTO, er
 				dglogger.Errorf(ctx, "copy attachment file failed | filename: %s | err: %v", filename, err)
 				return nil, err
 			}
+
+			emailDTO.Attachments = append(emailDTO.Attachments, outPath)
 		case *mail.InlineHeader:
 			buf := new(bytes.Buffer)
 			if _, err := io.Copy(buf, p.Body); err != nil {
