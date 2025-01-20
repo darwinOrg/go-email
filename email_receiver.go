@@ -52,11 +52,9 @@ func NewImapEmailClient(ctx *dgctx.DgContext, host string, port int, username, p
 		return nil, err
 	}
 
-	_, err = cli.Select("INBOX", nil).Wait()
-	if err != nil {
-		dglogger.Errorf(ctx, "select inbox failed | err: %v", err)
-		return nil, err
-	}
+	//if state := cli.State(); imap.ConnStateAuthenticated != state {
+	//	return nil, errors.New("Not connected")
+	//}
 
 	// some mail server need ID info
 	//idClient := id.NewClient(cli)
@@ -66,6 +64,12 @@ func NewImapEmailClient(ctx *dgctx.DgContext, host string, port int, username, p
 	//		id.FieldVersion: "3.1.0",
 	//	},
 	//)
+
+	_, err = cli.Select("INBOX", nil).Wait()
+	if err != nil {
+		dglogger.Errorf(ctx, "select inbox failed | err: %v", err)
+		return nil, err
+	}
 
 	return &ImapEmailClient{
 		server:   server,
