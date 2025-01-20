@@ -1,8 +1,10 @@
 package email
 
 import (
+	"bytes"
 	"fmt"
 	dgctx "github.com/darwinOrg/go-common/context"
+	"github.com/darwinOrg/go-common/utils"
 	dglogger "github.com/darwinOrg/go-logger"
 	"github.com/emersion/go-imap"
 	id "github.com/emersion/go-imap-id"
@@ -11,10 +13,11 @@ import (
 	"io"
 	"log"
 	"os"
+	"path"
 	"time"
 )
 
-type ReceiveEmailClient struct {
+type ImapEmailClient struct {
 	server   string
 	username string
 	client   *client.Client
@@ -27,23 +30,21 @@ type SearchEmailReq struct {
 
 type ReceiveEmailDTO struct {
 	EmailAddress string   `json:"emailAddress"` // 接收邮件地址
-	Scene        string   `json:"scene"`        // 场景
-	SendDate     string   `json:"sendDate"`     // 日期
-	ReceiveDate  string   `json:"receiveDate"`  // 日期
+	SendDate     string   `json:"sendDate"`     // 发送日期
 	Subject      string   `json:"subject"`      // 主题
-	ToName       []string `json:"toName"`       // 收件人
-	ToAddress    []string `json:"toAddress"`    // 收件人
-	FromAddress  string   `json:"fromAddress"`  // 发送人
-	FromName     string   `json:"fromName"`     // 发件邮箱地址
-	CcName       []string `json:"ccName"`       // 抄送人
-	CcAddress    []string `json:"ccAddress"`    // 抄送人
+	ToName       []string `json:"toName"`       // 收件人名称
+	ToAddress    []string `json:"toAddress"`    // 收件人地址
+	FromName     string   `json:"fromName"`     // 发送人名称
+	FromAddress  string   `json:"fromAddress"`  // 发送人地址
+	CcName       []string `json:"ccName"`       // 抄送人名称
+	CcAddress    []string `json:"ccAddress"`    // 抄送人地址
 	Content      string   `json:"content"`      // 正文
-	ReplyName    []string `json:"replyName"`    // 回复人
-	ReplyAddress []string `json:"replyAddress"` // 回复地址
+	ReplyName    []string `json:"replyName"`    // 回复人名称
+	ReplyAddress []string `json:"replyAddress"` // 回复人地址
 	Attachments  []string `json:"attachments"`  // 附件列表
 }
 
-func NewReceiveEmailClient(ctx *dgctx.DgContext, host string, port int, username, password string) (*ReceiveEmailClient, error) {
+func NewImapEmailClient(ctx *dgctx.DgContext, host string, port int, username, password string) (*ImapEmailClient, error) {
 	server := fmt.Sprintf("%s:%d", host, port)
 	cli, err := client.DialTLS(server, nil)
 	if err != nil {
@@ -66,14 +67,14 @@ func NewReceiveEmailClient(ctx *dgctx.DgContext, host string, port int, username
 		},
 	)
 
-	return &ReceiveEmailClient{
+	return &ImapEmailClient{
 		server:   server,
 		username: username,
 		client:   cli,
 	}, nil
 }
 
-func (r *ReceiveEmailClient) SearchEmails(ctx *dgctx.DgContext, req *SearchEmailReq) ([]*ReceiveEmailDTO, error) {
+func (r *ImapEmailClient) SearchEmails(ctx *dgctx.DgContext, req *SearchEmailReq) ([]*ReceiveEmailDTO, error) {
 	searchCriteria := imap.NewSearchCriteria()
 
 	if req.StartDate != "" {
@@ -96,6 +97,12 @@ func (r *ReceiveEmailClient) SearchEmails(ctx *dgctx.DgContext, req *SearchEmail
 		searchCriteria.Before = endDate
 	}
 
+	// 选择收件箱
+	_, err := r.client.Select("INBOX", true)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	seqNums, err := r.client.Search(searchCriteria)
 	if err != nil {
 		dglogger.Errorf(ctx, "search email failed | err: %v", err)
@@ -114,61 +121,115 @@ func (r *ReceiveEmailClient) SearchEmails(ctx *dgctx.DgContext, req *SearchEmail
 		done <- r.client.Fetch(seqSet, []imap.FetchItem{imap.FetchEnvelope, imap.FetchBody}, messages)
 	}()
 
+	var emails []*ReceiveEmailDTO
+
 logMessages:
 	for {
 		select {
 		case msg := <-messages:
-			body := msg.GetBody(&imap.BodySectionName{})
-			if body == nil {
-				log.Fatal("Server didn't return message body")
+			emailDTO, pe := parseMessage(ctx, msg)
+			if pe != nil {
+				return nil, pe
 			}
-
-			msgReader, err := mail.CreateReader(body)
-			if err != nil {
-				dglogger.Errorf(ctx, "create mail reader failed | err: %v", err)
-				return nil, err
-			}
-
-			for {
-				p, err := msgReader.NextPart()
-				if err == io.EOF {
-					break
-				} else if err != nil {
-					dglogger.Errorf(ctx, "read mail part failed | err: %v", err)
-					return nil, err
-				}
-
-				switch h := p.Header.(type) {
-				case *mail.AttachmentHeader:
-					filename, _ := h.Filename()
-					dglogger.Debugf(ctx, "found attachment: %s", filename)
-
-					outFile, err := os.Create(filename)
-					if err != nil {
-						dglogger.Errorf(ctx, "create attachment file failed | filename: %s | err: %v", filename, err)
-						return nil, err
-					}
-					defer func() {
-						_ = outFile.Close()
-					}()
-
-					if _, err := io.Copy(outFile, p.Body); err != nil {
-						dglogger.Errorf(ctx, "copy attachment file failed | filename: %s | err: %v", filename, err)
-						return nil, err
-					}
-				}
-			}
-		case e := <-done:
-			if e != nil {
-				dglogger.Errorf(ctx, "fetch email failed | err: %v", e)
+			emails = append(emails, emailDTO)
+		case de := <-done:
+			if de != nil {
+				dglogger.Errorf(ctx, "fetch email failed | err: %v", de)
+				return nil, de
 			}
 			break logMessages
 		}
 	}
 
-	return nil, nil
+	return emails, nil
 }
 
-func (r *ReceiveEmailClient) Close() error {
+func (r *ImapEmailClient) Close() error {
 	return r.client.Logout()
+}
+
+func parseMessage(ctx *dgctx.DgContext, msg *imap.Message) (*ReceiveEmailDTO, error) {
+	emailDTO := &ReceiveEmailDTO{}
+
+	envelope := msg.Envelope
+	body := msg.GetBody(&imap.BodySectionName{})
+
+	// 基本信息
+	emailDTO.EmailAddress = envelope.To[0].Address()
+	emailDTO.SendDate = envelope.Date.String()
+	emailDTO.Subject = envelope.Subject
+
+	// 收件人
+	for _, addr := range envelope.To {
+		emailDTO.ToName = append(emailDTO.ToName, addr.PersonalName)
+		emailDTO.ToAddress = append(emailDTO.ToAddress, addr.Address())
+	}
+
+	// 发件人
+	fromAddr := envelope.From[0]
+	emailDTO.FromName = fromAddr.PersonalName
+	emailDTO.FromAddress = fromAddr.Address()
+
+	// 抄送人
+	for _, addr := range envelope.Cc {
+		emailDTO.CcName = append(emailDTO.CcName, addr.PersonalName)
+		emailDTO.CcAddress = append(emailDTO.CcAddress, addr.Address())
+	}
+
+	// 解析邮件内容
+	msgReader, err := mail.CreateReader(body)
+	if err != nil {
+		dglogger.Errorf(ctx, "create mail reader failed | err: %v", err)
+		return nil, err
+	}
+
+	for {
+		p, err := msgReader.NextPart()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			dglogger.Errorf(ctx, "read mail part failed | err: %v", err)
+			return nil, err
+		}
+
+		switch h := p.Header.(type) {
+		case *mail.AttachmentHeader:
+			filename, _ := h.Filename()
+			emailDTO.Attachments = append(emailDTO.Attachments, filename)
+
+			randomLetter, _ := utils.RandomLetter(4)
+			outDir := path.Join(os.TempDir(), randomLetter)
+			_ = utils.CreateDir(outDir)
+
+			outFile, err := os.Create(path.Join(outDir, filename))
+			if err != nil {
+				dglogger.Errorf(ctx, "create attachment file failed | filename: %s | err: %v", filename, err)
+				return nil, err
+			}
+			defer func() {
+				_ = outFile.Close()
+			}()
+
+			if _, err := io.Copy(outFile, p.Body); err != nil {
+				dglogger.Errorf(ctx, "copy attachment file failed | filename: %s | err: %v", filename, err)
+				return nil, err
+			}
+		case *mail.InlineHeader:
+			buf := new(bytes.Buffer)
+			if _, err := io.Copy(buf, p.Body); err != nil {
+				dglogger.Errorf(ctx, "copy inline file failed | err: %v", err)
+				return nil, err
+			}
+			emailDTO.Content += buf.String()
+		default:
+			buf := new(bytes.Buffer)
+			if _, err := io.Copy(buf, p.Body); err != nil {
+				dglogger.Errorf(ctx, "copy default file failed | err: %v", err)
+				return nil, err
+			}
+			emailDTO.Content += buf.String()
+		}
+	}
+
+	return emailDTO, nil
 }

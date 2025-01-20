@@ -8,10 +8,10 @@ import (
 )
 
 func TestSendEmail(t *testing.T) {
-	sec := NewSendEmailClient(os.Getenv("host"), 587, os.Getenv("username"), os.Getenv("password"))
-	sec.UseMonitor = false
+	cli := NewSendEmailClient(os.Getenv("host"), 587, os.Getenv("username"), os.Getenv("password"))
+	cli.UseMonitor = false
 	ctx := &dgctx.DgContext{TraceId: "123"}
-	err := sec.SendEmail(ctx, &SendEmailRequest{
+	err := cli.SendEmail(ctx, &SendEmailRequest{
 		To:          []string{os.Getenv("to")},
 		Subject:     "Test Subject",
 		Content:     "<html><body>test body</body></html>",
