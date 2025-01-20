@@ -17,7 +17,6 @@ import (
 )
 
 var (
-	fetchBasic  = []imap.FetchItem{imap.FetchEnvelope, imap.FetchUid}
 	bodySection = &imap.BodySectionName{}
 	fetchDetail = []imap.FetchItem{bodySection.FetchItem(), imap.FetchEnvelope, imap.FetchUid}
 )
@@ -212,7 +211,7 @@ func parseMessage(ctx *dgctx.DgContext, msg *imap.Message) (*ReceiveEmailDTO, er
 		case *mail.AttachmentHeader:
 			filename, _ := h.Filename()
 
-			randomLetter, _ := utils.RandomLetter(4)
+			randomLetter, _ := utils.RandomLetter(8)
 			outDir := path.Join(os.TempDir(), randomLetter)
 			_ = utils.CreateDir(outDir)
 
