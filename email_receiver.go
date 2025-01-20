@@ -113,12 +113,12 @@ func (r *ImapEmailClient) SearchEmails(ctx *dgctx.DgContext, req *SearchEmailReq
 	}
 
 	seqSet := new(imap.SeqSet)
-	seqSet.AddRange(seqNums[0], seqNums[len(seqNums)-1])
+	seqSet.AddRange(seqNums[0], seqNums[len(seqNums)-1]+1)
 
 	messages := make(chan *imap.Message, 10)
 	done := make(chan error, 1)
 	go func() {
-		done <- r.client.Fetch(seqSet, []imap.FetchItem{imap.FetchEnvelope, imap.FetchBody}, messages)
+		done <- r.client.Fetch(seqSet, []imap.FetchItem{imap.FetchAll}, messages)
 	}()
 
 	var emails []*ReceiveEmailDTO
