@@ -82,7 +82,7 @@ func (r *ImapEmailClient) SearchEmails(ctx *dgctx.DgContext, req *SearchEmailReq
 			dglogger.Errorf(ctx, "parse start date failed | date: %s | err: %v", req.StartDate, err)
 			return nil, err
 		}
-		searchCriteria.Since = startDate
+		searchCriteria.SentSince = startDate
 	}
 
 	if req.EndDate != "" {
@@ -93,7 +93,7 @@ func (r *ImapEmailClient) SearchEmails(ctx *dgctx.DgContext, req *SearchEmailReq
 		}
 		// 因为Before是非包含的，所以加一天
 		endDate = endDate.AddDate(0, 0, 1)
-		searchCriteria.Before = endDate
+		searchCriteria.SentBefore = endDate
 	}
 
 	// 选择收件箱
