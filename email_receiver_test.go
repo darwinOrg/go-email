@@ -15,7 +15,7 @@ func TestSearchEmails(t *testing.T) {
 	}
 	emails, err := cli.SearchEmails(ctx, &SearchEmailReq{
 		StartDate: "2022-08-01",
-		EndDate:   "2024-12-02",
+		//EndDate:   "2024-12-02",
 	})
 	dglogger.Infof(ctx, "emails: %v", emails)
 }

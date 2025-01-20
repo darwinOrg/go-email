@@ -11,7 +11,6 @@ import (
 	"github.com/emersion/go-imap/client"
 	"github.com/emersion/go-message/mail"
 	"io"
-	"log"
 	"os"
 	"path"
 	"time"
@@ -100,7 +99,8 @@ func (r *ImapEmailClient) SearchEmails(ctx *dgctx.DgContext, req *SearchEmailReq
 	// 选择收件箱
 	_, err := r.client.Select("INBOX", true)
 	if err != nil {
-		log.Fatal(err)
+		dglogger.Errorf(ctx, "select inbox failed | err: %v", err)
+		return nil, err
 	}
 
 	seqNums, err := r.client.Search(searchCriteria)
