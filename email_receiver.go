@@ -131,6 +131,9 @@ logMessages:
 			if pe != nil {
 				return nil, pe
 			}
+			if emailDTO == nil {
+				continue
+			}
 			emails = append(emails, emailDTO)
 		case de := <-done:
 			if de != nil {
@@ -149,10 +152,17 @@ func (r *ImapEmailClient) Close() error {
 }
 
 func parseMessage(ctx *dgctx.DgContext, msg *imap.Message) (*ReceiveEmailDTO, error) {
-	emailDTO := &ReceiveEmailDTO{}
+	if msg == nil {
+		return nil, nil
+	}
 
-	envelope := msg.Envelope
 	body := msg.GetBody(&imap.BodySectionName{})
+	if body == nil {
+		return nil, nil
+	}
+
+	emailDTO := &ReceiveEmailDTO{}
+	envelope := msg.Envelope
 
 	// 基本信息
 	emailDTO.EmailAddress = envelope.To[0].Address()
