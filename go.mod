@@ -6,6 +6,7 @@ require (
 	github.com/darwinOrg/go-common v0.1.73
 	github.com/darwinOrg/go-logger v0.0.9
 	github.com/darwinOrg/go-monitor v0.0.5
+	github.com/emersion/go-imap/v2 v2.0.0-beta.4
 	github.com/jhillyerd/enmime/v2 v2.0.0
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 )
@@ -14,10 +15,8 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cention-sany/utf7 v0.0.0-20170124080048-26cad61bd60a // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/emersion/go-imap v1.2.1 // indirect
-	github.com/emersion/go-imap-id v0.0.0-20190926060100-f94a56b9ecde // indirect
 	github.com/emersion/go-message v0.18.2 // indirect
-	github.com/emersion/go-sasl v0.0.0-20200509203442-7bfe0ed36a21 // indirect
+	github.com/emersion/go-sasl v0.0.0-20241020182733-b788ff22d5a6 // indirect
 	github.com/gogs/chardet v0.0.0-20211120154057-b7413eaefb8f // indirect
 	github.com/jaytaylor/html2text v0.0.0-20230321000545-74c2419ad056 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
