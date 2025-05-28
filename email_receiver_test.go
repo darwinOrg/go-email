@@ -5,6 +5,7 @@ import (
 	dglogger "github.com/darwinOrg/go-logger"
 	"os"
 	"testing"
+	"time"
 )
 
 func TestSearchEmails(t *testing.T) {
@@ -13,9 +14,13 @@ func TestSearchEmails(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+
+	startTime, _ := time.Parse(time.DateOnly, "2025-01-01")
+	//endTime, _ := time.Parse(time.DateOnly, "2025-01-30")
 	emails, err := cli.SearchEmails(ctx, &SearchEmailReq{
-		StartDate: "2022-08-01",
-		//EndDate:   "2024-12-02",
+		StartTime: &startTime,
+		//EndTime:   &endTime,
 	})
+
 	dglogger.Infof(ctx, "emails: %v", emails)
 }

@@ -28,8 +28,8 @@ type ImapEmailClient struct {
 }
 
 type SearchEmailReq struct {
-	StartDate string `json:"startDate"`
-	EndDate   string `json:"endDate"`
+	StartTime *time.Time `json:"startTime"`
+	EndTime   *time.Time `json:"endTime"`
 }
 
 type ReceiveEmailDTO struct {
@@ -81,24 +81,12 @@ func NewImapEmailClient(ctx *dgctx.DgContext, host string, port int, username, p
 func (r *ImapEmailClient) SearchEmails(ctx *dgctx.DgContext, req *SearchEmailReq) ([]*ReceiveEmailDTO, error) {
 	searchCriteria := imap.NewSearchCriteria()
 
-	if req.StartDate != "" {
-		startDate, err := time.Parse(time.DateOnly, req.StartDate)
-		if err != nil {
-			dglogger.Errorf(ctx, "parse start date failed | date: %s | err: %v", req.StartDate, err)
-			return nil, err
-		}
-		searchCriteria.SentSince = startDate
+	if req.StartTime != nil {
+		searchCriteria.SentSince = *req.StartTime
 	}
 
-	if req.EndDate != "" {
-		endDate, err := time.Parse(time.DateOnly, req.EndDate)
-		if err != nil {
-			dglogger.Errorf(ctx, "parse start date failed | date: %s | err: %v", req.EndDate, err)
-			return nil, err
-		}
-		// 因为Before是非包含的，所以加一天
-		endDate = endDate.AddDate(0, 0, 1)
-		searchCriteria.SentBefore = endDate
+	if req.EndTime != nil {
+		searchCriteria.SentBefore = *req.EndTime
 	}
 
 	// 选择收件箱
