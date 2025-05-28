@@ -28,8 +28,17 @@ type ImapEmailClient struct {
 }
 
 type SearchEmailReq struct {
-	StartTime *time.Time `json:"startTime"`
-	EndTime   *time.Time `json:"endTime"`
+	// Time and timezone are ignored
+	Since      time.Time // Internal date is since this date
+	Before     time.Time // Internal date is before this date
+	SentSince  time.Time // Date header field is since this date
+	SentBefore time.Time // Date header field is before this date
+
+	Body []string // Each string is in the body
+	Text []string // Each string is in the text (header + body)
+
+	WithFlags    []string // Each flag is present
+	WithoutFlags []string // Each flag is not present
 }
 
 type ReceiveEmailDTO struct {
@@ -78,25 +87,29 @@ func NewImapEmailClient(ctx *dgctx.DgContext, host string, port int, username, p
 	}, nil
 }
 
-func (r *ImapEmailClient) SearchEmails(ctx *dgctx.DgContext, req *SearchEmailReq) ([]*ReceiveEmailDTO, error) {
-	searchCriteria := imap.NewSearchCriteria()
+func (c *ImapEmailClient) SearchEmails(ctx *dgctx.DgContext, req *SearchEmailReq) ([]*ReceiveEmailDTO, error) {
+	criteria := imap.NewSearchCriteria()
+	criteria.Since = req.Since
+	criteria.Before = req.Before
+	criteria.SentSince = req.SentSince
+	criteria.SentBefore = req.SentBefore
+	criteria.Body = req.Body
+	criteria.Text = req.Text
+	criteria.WithFlags = req.WithFlags
+	criteria.WithoutFlags = req.WithoutFlags
 
-	if req.StartTime != nil {
-		searchCriteria.SentSince = *req.StartTime
-	}
+	return c.SearchByCriteria(ctx, criteria)
+}
 
-	if req.EndTime != nil {
-		searchCriteria.SentBefore = *req.EndTime
-	}
-
+func (c *ImapEmailClient) SearchByCriteria(ctx *dgctx.DgContext, criteria *imap.SearchCriteria) ([]*ReceiveEmailDTO, error) {
 	// 选择收件箱
-	_, err := r.client.Select("INBOX", true)
+	_, err := c.client.Select("INBOX", true)
 	if err != nil {
 		dglogger.Errorf(ctx, "select inbox failed | err: %v", err)
 		return nil, err
 	}
 
-	seqNums, err := r.client.Search(searchCriteria)
+	seqNums, err := c.client.Search(criteria)
 	if err != nil {
 		dglogger.Errorf(ctx, "search email failed | err: %v", err)
 		return nil, err
@@ -111,7 +124,7 @@ func (r *ImapEmailClient) SearchEmails(ctx *dgctx.DgContext, req *SearchEmailReq
 	messages := make(chan *imap.Message, 10)
 	done := make(chan error, 1)
 	go func() {
-		done <- r.client.Fetch(seqSet, fetchDetail, messages)
+		done <- c.client.Fetch(seqSet, fetchDetail, messages)
 	}()
 
 	var emails []*ReceiveEmailDTO
@@ -140,8 +153,8 @@ logMessages:
 	return emails, nil
 }
 
-func (r *ImapEmailClient) Close() error {
-	return r.client.Logout()
+func (c *ImapEmailClient) Close() error {
+	return c.client.Logout()
 }
 
 func parseMessage(ctx *dgctx.DgContext, msg *imap.Message) (*ReceiveEmailDTO, error) {

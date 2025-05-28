@@ -15,11 +15,9 @@ func TestSearchEmails(t *testing.T) {
 		panic(err)
 	}
 
-	startTime, _ := time.Parse(time.DateOnly, "2025-01-01")
-	//endTime, _ := time.Parse(time.DateOnly, "2025-01-30")
+	startTime := time.Now().Add(time.Hour * 7)
 	emails, err := cli.SearchEmails(ctx, &SearchEmailReq{
-		StartTime: &startTime,
-		//EndTime:   &endTime,
+		SentSince: startTime,
 	})
 
 	dglogger.Infof(ctx, "emails: %v", emails)
