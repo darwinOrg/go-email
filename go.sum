@@ -35,8 +35,8 @@ github.com/google/go-cmp v0.7.0/go.mod h1:pXiqmnSA92OHEEa9HXL2W4E7lf9JzCmGVUdgjX
 github.com/google/gofuzz v1.0.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/M65Eg=
 github.com/jaytaylor/html2text v0.0.0-20230321000545-74c2419ad056 h1:iCHtR9CQyktQ5+f3dMVZfwD2KWJUgm7M0gdL9NGr8KA=
 github.com/jaytaylor/html2text v0.0.0-20230321000545-74c2419ad056/go.mod h1:CVKlgaMiht+LXvHG173ujK6JUhZXKb2u/BQtjPDIvyk=
-github.com/jhillyerd/enmime/v2 v2.0.0 h1:I39PYf0peLGroKq+uX2yGB1ExH/78HcRJy4VmERQAVk=
-github.com/jhillyerd/enmime/v2 v2.0.0/go.mod h1:wQkz7BochDzSukAz5ajAQaXOB7pEg5Vh5QWs7m1uAPw=
+github.com/jhillyerd/enmime/v2 v2.1.0 h1:c8Qwi5Xq5EdtMN6byQWoZ/8I2RMTo6OJ7Xay+s1oPO0=
+github.com/jhillyerd/enmime/v2 v2.1.0/go.mod h1:EJ74dcRbBcqHSP2TBu08XRoy6y3Yx0cevwb1YkGMEmQ=
 github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnrnM=
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
 github.com/klauspost/compress v1.18.0 h1:c/Cqfb0r+Yi+JtIEq73FWXVkRonBlf0CRNYc8Zttxdo=

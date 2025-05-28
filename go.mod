@@ -9,7 +9,7 @@ require (
 	github.com/emersion/go-imap v1.2.1
 	github.com/emersion/go-imap-id v0.0.0-20190926060100-f94a56b9ecde
 	github.com/emersion/go-message v0.18.2
-	github.com/jhillyerd/enmime/v2 v2.0.0
+	github.com/jhillyerd/enmime/v2 v2.1.0
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 )
 
