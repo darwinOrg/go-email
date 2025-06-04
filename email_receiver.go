@@ -3,16 +3,19 @@ package email
 import (
 	"bytes"
 	"fmt"
+	dgcoll "github.com/darwinOrg/go-common/collection"
 	dgctx "github.com/darwinOrg/go-common/context"
 	"github.com/darwinOrg/go-common/utils"
 	dglogger "github.com/darwinOrg/go-logger"
 	"github.com/emersion/go-imap"
 	id "github.com/emersion/go-imap-id"
 	"github.com/emersion/go-imap/client"
+	"github.com/emersion/go-message/charset"
 	"github.com/emersion/go-message/mail"
 	"io"
 	"os"
 	"path"
+	"strings"
 	"time"
 )
 
@@ -39,6 +42,8 @@ type SearchEmailReq struct {
 
 	WithFlags    []string // Each flag is present
 	WithoutFlags []string // Each flag is not present
+
+	Subject string // Subject contains this string
 }
 
 type ReceiveEmailDTO struct {
@@ -55,6 +60,10 @@ type ReceiveEmailDTO struct {
 	ReplyName    []string `json:"replyName"`    // 回复人名称
 	ReplyAddress []string `json:"replyAddress"` // 回复人地址
 	Attachments  []string `json:"attachments"`  // 附件列表
+}
+
+func init() {
+	imap.CharsetReader = charset.Reader
 }
 
 func NewImapEmailClient(ctx *dgctx.DgContext, host string, port int, username, password string) (*ImapEmailClient, error) {
@@ -98,7 +107,18 @@ func (c *ImapEmailClient) SearchEmails(ctx *dgctx.DgContext, req *SearchEmailReq
 	criteria.WithFlags = req.WithFlags
 	criteria.WithoutFlags = req.WithoutFlags
 
-	return c.SearchByCriteria(ctx, criteria)
+	emails, err := c.SearchByCriteria(ctx, criteria)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Subject != "" {
+		emails = dgcoll.FilterList(emails, func(email *ReceiveEmailDTO) bool {
+			return strings.Contains(email.Subject, req.Subject)
+		})
+	}
+
+	return emails, nil
 }
 
 func (c *ImapEmailClient) SearchByCriteria(ctx *dgctx.DgContext, criteria *imap.SearchCriteria) ([]*ReceiveEmailDTO, error) {
