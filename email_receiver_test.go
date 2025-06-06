@@ -10,15 +10,22 @@ import (
 
 func TestSearchEmails(t *testing.T) {
 	ctx := &dgctx.DgContext{TraceId: "123"}
-	cli, err := NewImapEmailClient(ctx, os.Getenv("host"), 993, os.Getenv("username"), os.Getenv("password"))
+	client, err := NewImapEmailClient(ctx, os.Getenv("host"), 993, os.Getenv("username"), os.Getenv("password"))
 	if err != nil {
 		panic(err)
 	}
 
-	startTime := time.Now().Add(time.Hour * 7)
-	emails, err := cli.SearchEmails(ctx, &SearchEmailReq{
-		SentSince: startTime,
-	})
+	startTime := time.Now().Add(-24 * time.Hour)
+	req := &SearchEmailReq{Since: startTime}
+	emails, err := client.SearchEmails(ctx, req)
+	if err != nil {
+		panic(err)
+	}
+	if emails == nil {
+		return
+	}
 
-	dglogger.Infof(ctx, "emails: %v", emails)
+	for email := range emails {
+		dglogger.Debugf(ctx, "email：%+v", email)
+	}
 }

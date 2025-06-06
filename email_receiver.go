@@ -3,7 +3,6 @@ package email
 import (
 	"bytes"
 	"fmt"
-	dgcoll "github.com/darwinOrg/go-common/collection"
 	dgctx "github.com/darwinOrg/go-common/context"
 	dgerr "github.com/darwinOrg/go-common/enums/error"
 	"github.com/darwinOrg/go-common/utils"
@@ -16,7 +15,6 @@ import (
 	"io"
 	"os"
 	"path"
-	"strings"
 	"time"
 )
 
@@ -46,8 +44,6 @@ type SearchEmailReq struct {
 
 	WithFlags    []string // Each flag is present
 	WithoutFlags []string // Each flag is not present
-
-	Subject string // Subject contains this string
 }
 
 type ReceiveEmailDTO struct {
@@ -100,7 +96,7 @@ func NewImapEmailClient(ctx *dgctx.DgContext, host string, port int, username, p
 	}, nil
 }
 
-func (c *ImapEmailClient) SearchEmails(ctx *dgctx.DgContext, req *SearchEmailReq) ([]*ReceiveEmailDTO, error) {
+func (c *ImapEmailClient) SearchEmails(ctx *dgctx.DgContext, req *SearchEmailReq) (chan *ReceiveEmailDTO, error) {
 	criteria := imap.NewSearchCriteria()
 	criteria.Since = req.Since
 	criteria.Before = req.Before
@@ -111,22 +107,10 @@ func (c *ImapEmailClient) SearchEmails(ctx *dgctx.DgContext, req *SearchEmailReq
 	criteria.WithFlags = req.WithFlags
 	criteria.WithoutFlags = req.WithoutFlags
 
-	emails, err := c.SearchByCriteria(ctx, criteria)
-	if err != nil {
-		return nil, err
-	}
-
-	if req.Subject != "" {
-		emails = dgcoll.FilterList(emails, func(email *ReceiveEmailDTO) bool {
-			return strings.Contains(email.Subject, req.Subject)
-		})
-	}
-
-	return emails, nil
+	return c.SearchByCriteria(ctx, criteria)
 }
 
-func (c *ImapEmailClient) SearchByCriteria(ctx *dgctx.DgContext, criteria *imap.SearchCriteria) ([]*ReceiveEmailDTO, error) {
-	// 选择收件箱
+func (c *ImapEmailClient) SearchByCriteria(ctx *dgctx.DgContext, criteria *imap.SearchCriteria) (chan *ReceiveEmailDTO, error) {
 	_, err := c.client.Select("INBOX", true)
 	if err != nil {
 		dglogger.Errorf(ctx, "select inbox failed | err: %v", err)
@@ -139,7 +123,7 @@ func (c *ImapEmailClient) SearchByCriteria(ctx *dgctx.DgContext, criteria *imap.
 		return nil, err
 	}
 	if len(seqNums) == 0 {
-		return []*ReceiveEmailDTO{}, nil
+		return nil, nil
 	}
 
 	seqSet := new(imap.SeqSet)
@@ -151,28 +135,29 @@ func (c *ImapEmailClient) SearchByCriteria(ctx *dgctx.DgContext, criteria *imap.
 		done <- c.client.Fetch(seqSet, fetchDetail, messages)
 	}()
 
-	var emails []*ReceiveEmailDTO
+	emails := make(chan *ReceiveEmailDTO, 10)
+	go func() {
+		defer close(emails)
 
-logMessages:
-	for {
-		select {
-		case msg := <-messages:
-			emailDTO, pe := parseMessage(ctx, msg)
-			if pe != nil {
-				return nil, pe
+		for {
+			select {
+			case msg := <-messages:
+				emailDTO, pe := parseMessage(ctx, msg)
+				if pe != nil {
+					continue
+				}
+				if emailDTO == nil {
+					continue
+				}
+				emails <- emailDTO
+			case de := <-done:
+				if de != nil {
+					dglogger.Errorf(ctx, "fetch email failed | err: %v", de)
+					break
+				}
 			}
-			if emailDTO == nil {
-				continue
-			}
-			emails = append(emails, emailDTO)
-		case de := <-done:
-			if de != nil {
-				dglogger.Errorf(ctx, "fetch email failed | err: %v", de)
-				return nil, de
-			}
-			break logMessages
 		}
-	}
+	}()
 
 	return emails, nil
 }
