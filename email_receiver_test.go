@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func TestSearchEmails(t *testing.T) {
+func TestReceiveEmails(t *testing.T) {
 	ctx := dgctx.SimpleDgContext()
 	client, err := NewImapEmailClient(ctx, os.Getenv("host"), 993, os.Getenv("username"), os.Getenv("password"))
 	if err != nil {
@@ -16,16 +16,8 @@ func TestSearchEmails(t *testing.T) {
 	}
 
 	startTime := time.Now().Add(-24 * time.Hour)
-	req := &SearchEmailReq{Since: startTime}
-	emails, err := client.SearchEmails(ctx, req)
-	if err != nil {
-		panic(err)
-	}
-	if emails == nil {
-		return
-	}
-
-	for email := range emails {
-		dglogger.Debugf(ctx, "email：%+v", email)
-	}
+	criteria := &SearchCriteria{Since: startTime}
+	_ = client.ReceiveEmails(ctx, criteria, func(emailDTO *ReceiveEmailDTO) {
+		dglogger.Debugf(ctx, "emailDTO: %+v", emailDTO)
+	})
 }

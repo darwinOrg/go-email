@@ -32,7 +32,7 @@ type ImapEmailClient struct {
 	client   *client.Client
 }
 
-type SearchEmailReq struct {
+type SearchCriteria struct {
 	// Time and timezone are ignored
 	Since      time.Time // Internal date is since this date
 	Before     time.Time // Internal date is before this date
@@ -96,18 +96,30 @@ func NewImapEmailClient(ctx *dgctx.DgContext, host string, port int, username, p
 	}, nil
 }
 
-func (c *ImapEmailClient) SearchEmails(ctx *dgctx.DgContext, req *SearchEmailReq) (chan *ReceiveEmailDTO, error) {
-	criteria := imap.NewSearchCriteria()
-	criteria.Since = req.Since
-	criteria.Before = req.Before
-	criteria.SentSince = req.SentSince
-	criteria.SentBefore = req.SentBefore
-	criteria.Body = req.Body
-	criteria.Text = req.Text
-	criteria.WithFlags = req.WithFlags
-	criteria.WithoutFlags = req.WithoutFlags
+func (c *ImapEmailClient) ReceiveEmails(ctx *dgctx.DgContext, criteria *SearchCriteria, handler func(emailDTO *ReceiveEmailDTO)) error {
+	sc := imap.NewSearchCriteria()
+	sc.Since = criteria.Since
+	sc.Before = criteria.Before
+	sc.SentSince = criteria.SentSince
+	sc.SentBefore = criteria.SentBefore
+	sc.Body = criteria.Body
+	sc.Text = criteria.Text
+	sc.WithFlags = criteria.WithFlags
+	sc.WithoutFlags = criteria.WithoutFlags
 
-	return c.SearchByCriteria(ctx, criteria)
+	emails, err := c.SearchByCriteria(ctx, sc)
+	if err != nil {
+		return err
+	}
+	if emails == nil {
+		return nil
+	}
+
+	for email := range emails {
+		go handler(email)
+	}
+
+	return nil
 }
 
 func (c *ImapEmailClient) SearchByCriteria(ctx *dgctx.DgContext, criteria *imap.SearchCriteria) (chan *ReceiveEmailDTO, error) {
@@ -130,7 +142,7 @@ func (c *ImapEmailClient) SearchByCriteria(ctx *dgctx.DgContext, criteria *imap.
 	seqSet.AddRange(seqNums[0], seqNums[len(seqNums)-1]+1)
 
 	messages := make(chan *imap.Message, 10)
-	done := make(chan error, 1)
+	done := make(chan error)
 	go func() {
 		done <- c.client.Fetch(seqSet, fetchDetail, messages)
 	}()
@@ -139,23 +151,19 @@ func (c *ImapEmailClient) SearchByCriteria(ctx *dgctx.DgContext, criteria *imap.
 	go func() {
 		defer close(emails)
 
-		for {
-			select {
-			case msg := <-messages:
-				emailDTO, pe := parseMessage(ctx, msg)
-				if pe != nil {
-					continue
-				}
-				if emailDTO == nil {
-					continue
-				}
-				emails <- emailDTO
-			case de := <-done:
-				if de != nil {
-					dglogger.Errorf(ctx, "fetch email failed | err: %v", de)
-					break
-				}
+		for msg := range messages {
+			emailDTO, pe := parseMessage(ctx, msg)
+			if pe != nil {
+				continue
 			}
+			if emailDTO == nil {
+				continue
+			}
+			emails <- emailDTO
+		}
+
+		if de := <-done; de != nil {
+			dglogger.Errorf(ctx, "fetch email failed, err: %v", de)
 		}
 	}()
 
