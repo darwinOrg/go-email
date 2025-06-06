@@ -4,6 +4,7 @@ import (
 	dgctx "github.com/darwinOrg/go-common/context"
 	dglogger "github.com/darwinOrg/go-logger"
 	"os"
+	"sync"
 	"testing"
 	"time"
 )
@@ -15,6 +16,22 @@ func TestReceiveEmails(t *testing.T) {
 		panic(err)
 	}
 
+	wg := sync.WaitGroup{}
+
+	for i := 0; i < 3; i++ {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			receiveEmails(ctx, client)
+		}()
+	}
+
+	wg.Wait()
+}
+
+func receiveEmails(ctx *dgctx.DgContext, client *ImapEmailClient) {
 	startTime := time.Now().Add(-24 * time.Hour)
 	criteria := &SearchCriteria{Since: startTime}
 	_ = client.ReceiveEmails(ctx, criteria, 3, func(emailDTO *ReceiveEmailDTO) error {

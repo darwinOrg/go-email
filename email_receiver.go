@@ -117,13 +117,13 @@ func (c *ImapEmailClient) ReceiveEmails(ctx *dgctx.DgContext, criteria *SearchCr
 
 	for emailDTO := range emails {
 		go func() {
-			defer func() {
-				if len(emailDTO.Attachments) > 0 {
+			if len(emailDTO.Attachments) > 0 {
+				defer func() {
 					for _, attachment := range emailDTO.Attachments {
 						_ = os.Remove(attachment)
 					}
-				}
-			}()
+				}()
+			}
 
 			for i := 0; i < maxRetryTimes; i++ {
 				if err := handler(emailDTO); err == nil {
