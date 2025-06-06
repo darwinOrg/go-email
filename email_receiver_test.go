@@ -17,7 +17,8 @@ func TestReceiveEmails(t *testing.T) {
 
 	startTime := time.Now().Add(-24 * time.Hour)
 	criteria := &SearchCriteria{Since: startTime}
-	_ = client.ReceiveEmails(ctx, criteria, func(emailDTO *ReceiveEmailDTO) {
+	_ = client.ReceiveEmails(ctx, criteria, 3, func(emailDTO *ReceiveEmailDTO) error {
 		dglogger.Debugf(ctx, "emailDTO: %+v", emailDTO)
+		return nil
 	})
 }
