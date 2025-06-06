@@ -5,6 +5,7 @@ import (
 	"fmt"
 	dgcoll "github.com/darwinOrg/go-common/collection"
 	dgctx "github.com/darwinOrg/go-common/context"
+	dgerr "github.com/darwinOrg/go-common/enums/error"
 	"github.com/darwinOrg/go-common/utils"
 	dglogger "github.com/darwinOrg/go-logger"
 	"github.com/emersion/go-imap"
@@ -22,6 +23,9 @@ import (
 var (
 	bodySection = &imap.BodySectionName{}
 	fetchDetail = []imap.FetchItem{bodySection.FetchItem(), imap.FetchEnvelope, imap.FetchUid}
+
+	serverConfigError    = dgerr.SimpleDgError("服务器配置错误")
+	accountPasswordError = dgerr.SimpleDgError("账号密码错误")
 )
 
 type ImapEmailClient struct {
@@ -71,13 +75,13 @@ func NewImapEmailClient(ctx *dgctx.DgContext, host string, port int, username, p
 	cli, err := client.DialTLS(server, nil)
 	if err != nil {
 		dglogger.Errorf(ctx, "dial imap server failed | server: %s | err: %v", server, err)
-		return nil, err
+		return nil, serverConfigError
 	}
 
 	err = cli.Login(username, password)
 	if err != nil {
 		dglogger.Errorf(ctx, "login imap server failed | server: %s | username: %s | err: %v", server, username, err)
-		return nil, err
+		return nil, accountPasswordError
 	}
 
 	// some mail server need ID info
