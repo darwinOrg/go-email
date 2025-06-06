@@ -138,7 +138,7 @@ func (c *ImapEmailClient) ReceiveEmails(ctx *dgctx.DgContext, criteria *SearchCr
 	return nil
 }
 
-func (c *ImapEmailClient) TrySearch(ctx *dgctx.DgContext) error {
+func (c *ImapEmailClient) SearchTest(ctx *dgctx.DgContext) error {
 	_, err := c.client.Select("INBOX", true)
 	if err != nil {
 		dglogger.Errorf(ctx, "select inbox failed | err: %v", err)
