@@ -138,6 +138,23 @@ func (c *ImapEmailClient) ReceiveEmails(ctx *dgctx.DgContext, criteria *SearchCr
 	return nil
 }
 
+func (c *ImapEmailClient) TrySearch(ctx *dgctx.DgContext) error {
+	_, err := c.client.Select("INBOX", true)
+	if err != nil {
+		dglogger.Errorf(ctx, "select inbox failed | err: %v", err)
+		return err
+	}
+
+	criteria := &imap.SearchCriteria{SentSince: time.Now().Add(24 * time.Hour)}
+	_, err = c.client.Search(criteria)
+	if err != nil {
+		dglogger.Errorf(ctx, "search email failed | err: %v", err)
+		return err
+	}
+
+	return nil
+}
+
 func (c *ImapEmailClient) SearchByCriteria(ctx *dgctx.DgContext, criteria *imap.SearchCriteria) (chan *ReceiveEmailDTO, error) {
 	_, err := c.client.Select("INBOX", true)
 	if err != nil {
