@@ -9,7 +9,7 @@ import (
 )
 
 func TestSearchEmails(t *testing.T) {
-	ctx := &dgctx.DgContext{TraceId: "123"}
+	ctx := dgctx.SimpleDgContext()
 	client, err := NewImapEmailClient(ctx, os.Getenv("host"), 993, os.Getenv("username"), os.Getenv("password"))
 	if err != nil {
 		panic(err)
