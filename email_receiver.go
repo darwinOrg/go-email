@@ -96,7 +96,7 @@ func NewImapEmailClient(ctx *dgctx.DgContext, host string, port int, username, p
 	}, nil
 }
 
-func (c *ImapEmailClient) ReceiveEmails(ctx *dgctx.DgContext, criteria *SearchCriteria, handler func(emailDTO *ReceiveEmailDTO)) error {
+func (c *ImapEmailClient) ReceiveEmails(ctx *dgctx.DgContext, criteria *SearchCriteria, maxRetryTimes int, handler func(emailDTO *ReceiveEmailDTO) error) error {
 	sc := imap.NewSearchCriteria()
 	sc.Since = criteria.Since
 	sc.Before = criteria.Before
@@ -125,7 +125,13 @@ func (c *ImapEmailClient) ReceiveEmails(ctx *dgctx.DgContext, criteria *SearchCr
 				}
 			}()
 
-			handler(emailDTO)
+			for i := 0; i < maxRetryTimes; i++ {
+				if err := handler(emailDTO); err == nil {
+					break
+				} else {
+					time.Sleep(time.Second)
+				}
+			}
 		}()
 	}
 
