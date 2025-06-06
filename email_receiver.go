@@ -24,6 +24,7 @@ var (
 
 	serverConfigError    = dgerr.SimpleDgError("服务器配置错误")
 	accountPasswordError = dgerr.SimpleDgError("账号密码错误")
+	searchEmailError     = dgerr.SimpleDgError("搜索邮件错误")
 )
 
 type ImapEmailClient struct {
@@ -149,7 +150,7 @@ func (c *ImapEmailClient) SearchTest(ctx *dgctx.DgContext) error {
 	_, err = c.client.Search(criteria)
 	if err != nil {
 		dglogger.Errorf(ctx, "search email failed | err: %v", err)
-		return err
+		return searchEmailError
 	}
 
 	return nil

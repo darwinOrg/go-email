@@ -15,6 +15,10 @@ func TestReceiveEmails(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+	err = client.SearchTest(ctx)
+	if err != nil {
+		panic(err)
+	}
 
 	wg := sync.WaitGroup{}
 
