@@ -115,8 +115,18 @@ func (c *ImapEmailClient) ReceiveEmails(ctx *dgctx.DgContext, criteria *SearchCr
 		return nil
 	}
 
-	for email := range emails {
-		go handler(email)
+	for emailDTO := range emails {
+		go func() {
+			defer func() {
+				if len(emailDTO.Attachments) > 0 {
+					for _, attachment := range emailDTO.Attachments {
+						_ = os.Remove(attachment)
+					}
+				}
+			}()
+
+			handler(emailDTO)
+		}()
 	}
 
 	return nil
