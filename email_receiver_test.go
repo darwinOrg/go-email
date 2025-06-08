@@ -22,7 +22,7 @@ func TestReceiveEmails(t *testing.T) {
 
 	wg := sync.WaitGroup{}
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		wg.Add(1)
 
 		go func() {

@@ -18,7 +18,7 @@ import (
 
 var (
 	bodySection = &imap.BodySectionName{}
-	fetchDetail = []imap.FetchItem{bodySection.FetchItem(), imap.FetchEnvelope, imap.FetchUid}
+	fetchItems  = []imap.FetchItem{bodySection.FetchItem(), imap.FetchEnvelope, imap.FetchUid}
 
 	serverConfigError    = dgerr.SimpleDgError("服务器配置错误")
 	accountPasswordError = dgerr.SimpleDgError("账号密码错误")
@@ -62,8 +62,8 @@ type ReceiveEmailDTO struct {
 }
 
 type Attachment struct {
-	FileName string    `json:"fileName"` // 文件名称
-	Body     io.Reader `json:"-"`        // 文件内容
+	FileName string `json:"fileName"` // 文件名称
+	Body     []byte `json:"-"`        // 文件内容
 }
 
 func init() {
@@ -141,23 +141,6 @@ func (c *ImapEmailClient) ReceiveEmails(ctx *dgctx.DgContext, criteria *SearchCr
 	return nil
 }
 
-func (c *ImapEmailClient) SearchTest(ctx *dgctx.DgContext) error {
-	_, err := c.client.Select("INBOX", true)
-	if err != nil {
-		dglogger.Errorf(ctx, "select inbox failed | err: %v", err)
-		return err
-	}
-
-	criteria := &imap.SearchCriteria{SentSince: time.Now().Add(24 * time.Hour)}
-	_, err = c.client.Search(criteria)
-	if err != nil {
-		dglogger.Errorf(ctx, "search email failed | err: %v", err)
-		return searchEmailError
-	}
-
-	return nil
-}
-
 func (c *ImapEmailClient) SearchByCriteria(ctx *dgctx.DgContext, criteria *imap.SearchCriteria) (chan *imap.Message, chan error, error) {
 	_, err := c.client.Select("INBOX", true)
 	if err != nil {
@@ -180,10 +163,27 @@ func (c *ImapEmailClient) SearchByCriteria(ctx *dgctx.DgContext, criteria *imap.
 	messages := make(chan *imap.Message, 10)
 	done := make(chan error)
 	go func() {
-		done <- c.client.Fetch(seqSet, fetchDetail, messages)
+		done <- c.client.Fetch(seqSet, fetchItems, messages)
 	}()
 
 	return messages, done, nil
+}
+
+func (c *ImapEmailClient) SearchTest(ctx *dgctx.DgContext) error {
+	_, err := c.client.Select("INBOX", true)
+	if err != nil {
+		dglogger.Errorf(ctx, "select inbox failed | err: %v", err)
+		return err
+	}
+
+	criteria := &imap.SearchCriteria{SentSince: time.Now().Add(24 * time.Hour)}
+	_, err = c.client.Search(criteria)
+	if err != nil {
+		dglogger.Errorf(ctx, "search email failed | err: %v", err)
+		return searchEmailError
+	}
+
+	return nil
 }
 
 func (c *ImapEmailClient) Close() error {
@@ -241,27 +241,23 @@ func parseMessage(ctx *dgctx.DgContext, msg *imap.Message) (*ReceiveEmailDTO, er
 			return nil, err
 		}
 
+		buf := new(bytes.Buffer)
+		if _, err := io.Copy(buf, p.Body); err != nil {
+			dglogger.Errorf(ctx, "copy body failed | err: %v", err)
+			return nil, err
+		}
+
 		switch h := p.Header.(type) {
 		case *mail.AttachmentHeader:
 			filename, _ := h.Filename()
 
-			emailDTO.Attachments = append(emailDTO.Attachments, &Attachment{
-				FileName: filename,
-				Body:     p.Body,
-			})
-		case *mail.InlineHeader:
-			buf := new(bytes.Buffer)
-			if _, err := io.Copy(buf, p.Body); err != nil {
-				dglogger.Errorf(ctx, "copy inline file failed | err: %v", err)
-				return nil, err
+			if filename != "" {
+				emailDTO.Attachments = append(emailDTO.Attachments, &Attachment{
+					FileName: filename,
+					Body:     buf.Bytes(),
+				})
 			}
-			emailDTO.Content += buf.String()
 		default:
-			buf := new(bytes.Buffer)
-			if _, err := io.Copy(buf, p.Body); err != nil {
-				dglogger.Errorf(ctx, "copy default file failed | err: %v", err)
-				return nil, err
-			}
 			emailDTO.Content += buf.String()
 		}
 	}
