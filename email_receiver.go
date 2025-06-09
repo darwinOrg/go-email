@@ -139,7 +139,7 @@ func (c *ImapEmailClient) ReceiveEmails(ctx *dgctx.DgContext, criteria *SearchCr
 
 	for message := range messages {
 		go func() {
-			emailDTO, err := parseMessage(ctx, message, criteria)
+			emailDTO, err := filterAndParseMessage(ctx, message, criteria)
 			if err != nil || emailDTO == nil {
 				return
 			}
@@ -205,7 +205,7 @@ func (c *ImapEmailClient) Close() error {
 	return c.client.Logout()
 }
 
-func parseMessage(ctx *dgctx.DgContext, msg *imap.Message, criteria *SearchCriteria) (*ReceiveEmailDTO, error) {
+func filterAndParseMessage(ctx *dgctx.DgContext, msg *imap.Message, criteria *SearchCriteria) (*ReceiveEmailDTO, error) {
 	if msg == nil {
 		return nil, nil
 	}
@@ -283,7 +283,7 @@ func parseMessage(ctx *dgctx.DgContext, msg *imap.Message, criteria *SearchCrite
 				if len(criteria.AttachmentExtends) > 0 {
 					fileExt := path.Ext(filename)
 					if !dgcoll.Contains(criteria.AttachmentExtends, strings.ToLower(fileExt)) {
-						continue
+						return nil, nil
 					}
 				}
 
