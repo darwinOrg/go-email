@@ -3,6 +3,7 @@ package email
 import (
 	"bytes"
 	"fmt"
+	dgcoll "github.com/darwinOrg/go-common/collection"
 	dgctx "github.com/darwinOrg/go-common/context"
 	dgerr "github.com/darwinOrg/go-common/enums/error"
 	"github.com/darwinOrg/go-common/utils"
@@ -13,6 +14,8 @@ import (
 	"github.com/emersion/go-message/charset"
 	"github.com/emersion/go-message/mail"
 	"io"
+	"path"
+	"strings"
 	"time"
 )
 
@@ -43,6 +46,10 @@ type SearchCriteria struct {
 
 	WithFlags    []string // Each flag is present
 	WithoutFlags []string // Each flag is not present
+
+	Subject           string   // 邮件主题，包含
+	NeedBody          bool     // 返回结果是否需要Body
+	AttachmentExtends []string // 附近扩展名
 }
 
 type ReceiveEmailDTO struct {
@@ -118,7 +125,7 @@ func (c *ImapEmailClient) ReceiveEmails(ctx *dgctx.DgContext, criteria *SearchCr
 
 	for message := range messages {
 		go func() {
-			emailDTO, err := parseMessage(ctx, message)
+			emailDTO, err := parseMessage(ctx, message, criteria)
 			if err != nil || emailDTO == nil {
 				return
 			}
@@ -190,18 +197,20 @@ func (c *ImapEmailClient) Close() error {
 	return c.client.Logout()
 }
 
-func parseMessage(ctx *dgctx.DgContext, msg *imap.Message) (*ReceiveEmailDTO, error) {
+func parseMessage(ctx *dgctx.DgContext, msg *imap.Message, criteria *SearchCriteria) (*ReceiveEmailDTO, error) {
 	if msg == nil {
 		return nil, nil
 	}
 
-	body := msg.GetBody(&imap.BodySectionName{})
-	if body == nil {
-		return nil, nil
+	envelope := msg.Envelope
+
+	if criteria.Subject != "" {
+		if !strings.Contains(envelope.Subject, criteria.Subject) {
+			return nil, nil
+		}
 	}
 
 	emailDTO := &ReceiveEmailDTO{}
-	envelope := msg.Envelope
 
 	// 基本信息
 	emailDTO.EmailAddress = envelope.To[0].Address()
@@ -225,6 +234,11 @@ func parseMessage(ctx *dgctx.DgContext, msg *imap.Message) (*ReceiveEmailDTO, er
 		emailDTO.CcAddress = append(emailDTO.CcAddress, addr.Address())
 	}
 
+	body := msg.GetBody(&imap.BodySectionName{})
+	if body == nil {
+		return nil, nil
+	}
+
 	// 解析邮件内容
 	msgReader, err := mail.CreateReader(body)
 	if err != nil {
@@ -241,26 +255,48 @@ func parseMessage(ctx *dgctx.DgContext, msg *imap.Message) (*ReceiveEmailDTO, er
 			return nil, err
 		}
 
-		buf := new(bytes.Buffer)
-		if _, err := io.Copy(buf, p.Body); err != nil {
-			dglogger.Errorf(ctx, "copy body failed | err: %v", err)
-			return nil, err
-		}
-
 		switch h := p.Header.(type) {
 		case *mail.AttachmentHeader:
 			filename, _ := h.Filename()
 
 			if filename != "" {
+				if len(criteria.AttachmentExtends) > 0 {
+					fileExt := path.Ext(filename)
+					if !dgcoll.Contains(criteria.AttachmentExtends, strings.ToLower(fileExt)) {
+						continue
+					}
+				}
+
+				buf, err := copyBodyToBytesBuffer(ctx, p.Body)
+				if err != nil {
+					continue
+				}
+
 				emailDTO.Attachments = append(emailDTO.Attachments, &Attachment{
 					FileName: filename,
 					Body:     buf.Bytes(),
 				})
 			}
 		default:
-			emailDTO.Content += buf.String()
+			if criteria.NeedBody {
+				buf, err := copyBodyToBytesBuffer(ctx, p.Body)
+				if err != nil {
+					continue
+				}
+				emailDTO.Content += buf.String()
+			}
 		}
 	}
 
 	return emailDTO, nil
+}
+
+func copyBodyToBytesBuffer(ctx *dgctx.DgContext, body io.Reader) (*bytes.Buffer, error) {
+	buf := new(bytes.Buffer)
+	if _, err := io.Copy(buf, body); err != nil {
+		dglogger.Errorf(ctx, "copy body failed | err: %v", err)
+		return nil, err
+	}
+
+	return buf, nil
 }
