@@ -26,6 +26,7 @@ var (
 	serverConfigError    = dgerr.SimpleDgError("服务器配置错误")
 	accountPasswordError = dgerr.SimpleDgError("账号密码错误")
 	searchEmailError     = dgerr.SimpleDgError("搜索邮件错误")
+	selectInboxError     = dgerr.SimpleDgError("选择收件箱错误")
 )
 
 type ImapEmailClient struct {
@@ -118,8 +119,8 @@ func (c *ImapEmailClient) ReceiveEmails(ctx *dgctx.DgContext, criteria *SearchCr
 	sc.WithFlags = criteria.WithFlags
 	sc.WithoutFlags = criteria.WithoutFlags
 
-	messages, done, err := c.SearchByCriteria(ctx, sc)
-	if err != nil {
+	messages, err := c.SearchByCriteria(ctx, sc)
+	if err != nil || messages == nil {
 		return err
 	}
 
@@ -140,47 +141,41 @@ func (c *ImapEmailClient) ReceiveEmails(ctx *dgctx.DgContext, criteria *SearchCr
 		}()
 	}
 
-	if err = <-done; err != nil {
-		dglogger.Errorf(ctx, "fetch email failed, err: %v", err)
-		return err
-	}
-
 	return nil
 }
 
-func (c *ImapEmailClient) SearchByCriteria(ctx *dgctx.DgContext, criteria *imap.SearchCriteria) (chan *imap.Message, chan error, error) {
+func (c *ImapEmailClient) SearchByCriteria(ctx *dgctx.DgContext, criteria *imap.SearchCriteria) (chan *imap.Message, error) {
 	_, err := c.client.Select("INBOX", true)
 	if err != nil {
 		dglogger.Errorf(ctx, "select inbox failed | err: %v", err)
-		return nil, nil, err
+		return nil, err
 	}
 
 	seqNums, err := c.client.Search(criteria)
 	if err != nil {
 		dglogger.Errorf(ctx, "search email failed | err: %v", err)
-		return nil, nil, err
+		return nil, err
 	}
 	if len(seqNums) == 0 {
-		return nil, nil, nil
+		return nil, nil
 	}
 
 	seqSet := new(imap.SeqSet)
 	seqSet.AddRange(seqNums[0], seqNums[len(seqNums)-1]+1)
 
 	messages := make(chan *imap.Message, 10)
-	done := make(chan error)
 	go func() {
-		done <- c.client.Fetch(seqSet, fetchItems, messages)
+		_ = c.client.Fetch(seqSet, fetchItems, messages)
 	}()
 
-	return messages, done, nil
+	return messages, nil
 }
 
 func (c *ImapEmailClient) SearchTest(ctx *dgctx.DgContext) error {
 	_, err := c.client.Select("INBOX", true)
 	if err != nil {
 		dglogger.Errorf(ctx, "select inbox failed | err: %v", err)
-		return err
+		return selectInboxError
 	}
 
 	criteria := &imap.SearchCriteria{SentSince: time.Now().Add(24 * time.Hour)}
