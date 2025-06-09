@@ -23,10 +23,10 @@ var (
 	bodySection = &imap.BodySectionName{}
 	fetchItems  = []imap.FetchItem{bodySection.FetchItem(), imap.FetchEnvelope, imap.FetchUid}
 
-	serverConfigError    = dgerr.SimpleDgError("服务器配置错误")
-	accountPasswordError = dgerr.SimpleDgError("账号密码错误")
-	searchEmailError     = dgerr.SimpleDgError("搜索邮件错误")
-	selectInboxError     = dgerr.SimpleDgError("选择收件箱错误")
+	ServerConfigError    = dgerr.SimpleDgError("服务器配置错误")
+	AccountPasswordError = dgerr.SimpleDgError("账号密码错误")
+	SelectInboxError     = dgerr.SimpleDgError("选择收件箱错误")
+	SearchEmailError     = dgerr.SimpleDgError("搜索邮件错误")
 )
 
 type ImapEmailClient struct {
@@ -83,13 +83,13 @@ func NewImapEmailClient(ctx *dgctx.DgContext, host string, port int, username, p
 	cli, err := client.DialTLS(server, nil)
 	if err != nil {
 		dglogger.Errorf(ctx, "dial imap server failed | server: %s | err: %v", server, err)
-		return nil, serverConfigError
+		return nil, ServerConfigError
 	}
 
 	err = cli.Login(username, password)
 	if err != nil {
 		dglogger.Errorf(ctx, "login imap server failed | server: %s | username: %s | err: %v", server, username, err)
-		return nil, accountPasswordError
+		return nil, AccountPasswordError
 	}
 
 	// some mail server need ID info
@@ -188,14 +188,14 @@ func (c *ImapEmailClient) SearchTest(ctx *dgctx.DgContext) error {
 	_, err := c.client.Select("INBOX", true)
 	if err != nil {
 		dglogger.Errorf(ctx, "select inbox failed | err: %v", err)
-		return selectInboxError
+		return SelectInboxError
 	}
 
 	criteria := &imap.SearchCriteria{SentSince: time.Now().Add(24 * time.Hour)}
 	_, err = c.client.Search(criteria)
 	if err != nil {
 		dglogger.Errorf(ctx, "search email failed | err: %v", err)
-		return searchEmailError
+		return SearchEmailError
 	}
 
 	return nil
