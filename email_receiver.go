@@ -48,9 +48,9 @@ type SearchCriteria struct {
 	WithFlags    []string // Each flag is present
 	WithoutFlags []string // Each flag is not present
 
-	Subject           string   // 邮件主题，包含
-	NeedBody          bool     // 返回结果是否需要Body
-	AttachmentExtends []string // 附近扩展名
+	Subject           string   // 邮件主题
+	IncludeBody       bool     // 返回结果是否包含Body
+	AttachmentExtends []string // 附件扩展名
 }
 
 type ReceiveEmailDTO struct {
@@ -298,7 +298,7 @@ func filterAndParseMessage(ctx *dgctx.DgContext, msg *imap.Message, criteria *Se
 				})
 			}
 		default:
-			if criteria.NeedBody {
+			if criteria.IncludeBody {
 				buf, err := copyBodyToBytesBuffer(ctx, p.Body)
 				if err != nil {
 					continue
