@@ -283,7 +283,7 @@ func filterAndParseMessage(ctx *dgctx.DgContext, msg *imap.Message, criteria *Se
 				if len(criteria.AttachmentExtends) > 0 {
 					fileExt := path.Ext(filename)
 					if !dgcoll.Contains(criteria.AttachmentExtends, strings.ToLower(fileExt)) {
-						return nil, nil
+						continue
 					}
 				}
 
