@@ -37,10 +37,10 @@ type ImapEmailClient struct {
 
 type SearchCriteria struct {
 	// Time and timezone are ignored
-	Since      time.Time // Internal date is since this date
-	Before     time.Time // Internal date is before this date
-	SentSince  time.Time // Date header field is since this date
-	SentBefore time.Time // Date header field is before this date
+	Since      *time.Time // Internal date is since this date
+	Before     *time.Time // Internal date is before this date
+	SentSince  *time.Time // Date header field is since this date
+	SentBefore *time.Time // Date header field is before this date
 
 	Body []string // Each string is in the body
 	Text []string // Each string is in the text (header + body)
@@ -110,10 +110,23 @@ func NewImapEmailClient(ctx *dgctx.DgContext, host string, port int, username, p
 
 func (c *ImapEmailClient) ReceiveEmails(ctx *dgctx.DgContext, criteria *SearchCriteria, maxRetryTimes int, handler func(emailDTO *ReceiveEmailDTO) error) error {
 	sc := imap.NewSearchCriteria()
-	sc.Since = criteria.Since
-	sc.Before = criteria.Before
-	sc.SentSince = criteria.SentSince
-	sc.SentBefore = criteria.SentBefore
+
+	if criteria.Since != nil {
+		sc.Since = *criteria.Since
+	}
+
+	if criteria.Before != nil {
+		sc.Before = *criteria.Before
+	}
+
+	if criteria.SentSince != nil {
+		sc.SentSince = *criteria.SentSince
+	}
+
+	if criteria.SentBefore != nil {
+		sc.SentBefore = *criteria.SentBefore
+	}
+
 	sc.Body = criteria.Body
 	sc.Text = criteria.Text
 	sc.WithFlags = criteria.WithFlags
@@ -201,6 +214,12 @@ func parseMessage(ctx *dgctx.DgContext, msg *imap.Message, criteria *SearchCrite
 
 	if criteria.Subject != "" {
 		if !strings.Contains(envelope.Subject, criteria.Subject) {
+			return nil, nil
+		}
+	}
+
+	if criteria.Since != nil {
+		if envelope.Date.Before(*criteria.Since) {
 			return nil, nil
 		}
 	}
