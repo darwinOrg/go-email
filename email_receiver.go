@@ -224,6 +224,12 @@ func parseMessage(ctx *dgctx.DgContext, msg *imap.Message, criteria *SearchCrite
 		}
 	}
 
+	if criteria.SentSince != nil {
+		if envelope.Date.Before(*criteria.SentSince) {
+			return nil, nil
+		}
+	}
+
 	emailDTO := &ReceiveEmailDTO{}
 
 	// 基本信息
