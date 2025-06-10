@@ -132,56 +132,60 @@ func (c *ImapEmailClient) ReceiveEmails(ctx *dgctx.DgContext, criteria *SearchCr
 	sc.WithFlags = criteria.WithFlags
 	sc.WithoutFlags = criteria.WithoutFlags
 
-	messages, err := c.SearchByCriteria(ctx, sc)
+	messages, done, err := c.SearchByCriteria(ctx, sc)
 	if err != nil || messages == nil {
 		return err
 	}
 
 	for message := range messages {
-		go func() {
-			emailDTO, err := filterAndParseMessage(ctx, message, criteria)
-			if err != nil || emailDTO == nil {
-				return
-			}
+		emailDTO, err := filterAndParseMessage(ctx, message, criteria)
+		if err != nil || emailDTO == nil {
+			continue
+		}
 
-			for i := 0; i < maxRetryTimes; i++ {
-				if err := handler(emailDTO); err == nil {
-					break
-				} else {
-					time.Sleep(time.Duration(utils.RandomIntInRange(1000, 5000)) * time.Millisecond)
-				}
+		for i := 0; i < maxRetryTimes; i++ {
+			if err := handler(emailDTO); err == nil {
+				break
+			} else {
+				time.Sleep(time.Duration(utils.RandomIntInRange(1000, 5000)) * time.Millisecond)
 			}
-		}()
+		}
+	}
+
+	if err = <-done; err != nil {
+		dglogger.Errorf(ctx, "fetch email failed | err: %v", err)
+		return err
 	}
 
 	return nil
 }
 
-func (c *ImapEmailClient) SearchByCriteria(ctx *dgctx.DgContext, criteria *imap.SearchCriteria) (chan *imap.Message, error) {
+func (c *ImapEmailClient) SearchByCriteria(ctx *dgctx.DgContext, criteria *imap.SearchCriteria) (chan *imap.Message, chan error, error) {
 	_, err := c.client.Select("INBOX", true)
 	if err != nil {
 		dglogger.Errorf(ctx, "select inbox failed | err: %v", err)
-		return nil, err
+		return nil, nil, err
 	}
 
 	seqNums, err := c.client.Search(criteria)
 	if err != nil {
 		dglogger.Errorf(ctx, "search email failed | err: %v", err)
-		return nil, err
+		return nil, nil, err
 	}
 	if len(seqNums) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	seqSet := new(imap.SeqSet)
 	seqSet.AddRange(seqNums[0], seqNums[len(seqNums)-1]+1)
 
 	messages := make(chan *imap.Message, 10)
+	done := make(chan error)
 	go func() {
-		_ = c.client.Fetch(seqSet, fetchItems, messages)
+		done <- c.client.Fetch(seqSet, fetchItems, messages)
 	}()
 
-	return messages, nil
+	return messages, done, nil
 }
 
 func (c *ImapEmailClient) SearchTest(ctx *dgctx.DgContext) error {
