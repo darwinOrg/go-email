@@ -109,7 +109,7 @@ func NewImapEmailClient(ctx *dgctx.DgContext, host string, port int, username, p
 	}, nil
 }
 
-func (c *ImapEmailClient) ReceiveEmails(ctx *dgctx.DgContext, criteria *SearchCriteria, maxRetryTimes int, handler func(emailDTO *ReceiveEmailDTO) error) error {
+func (c *ImapEmailClient) ReceiveEmails(ctx *dgctx.DgContext, criteria *SearchCriteria, fetchCapacity, maxRetryTimes int, handler func(emailDTO *ReceiveEmailDTO) error) error {
 	sc := imap.NewSearchCriteria()
 
 	if !criteria.Since.IsZero() {
@@ -133,7 +133,7 @@ func (c *ImapEmailClient) ReceiveEmails(ctx *dgctx.DgContext, criteria *SearchCr
 	sc.WithFlags = criteria.WithFlags
 	sc.WithoutFlags = criteria.WithoutFlags
 
-	messages, done, err := c.SearchByCriteria(ctx, sc)
+	messages, done, err := c.SearchByCriteria(ctx, sc, fetchCapacity)
 	if err != nil || messages == nil {
 		return err
 	}
@@ -161,7 +161,7 @@ func (c *ImapEmailClient) ReceiveEmails(ctx *dgctx.DgContext, criteria *SearchCr
 	return nil
 }
 
-func (c *ImapEmailClient) SearchByCriteria(ctx *dgctx.DgContext, criteria *imap.SearchCriteria) (chan *imap.Message, chan error, error) {
+func (c *ImapEmailClient) SearchByCriteria(ctx *dgctx.DgContext, criteria *imap.SearchCriteria, fetchCapacity int) (chan *imap.Message, chan error, error) {
 	_, err := c.client.Select("INBOX", true)
 	if err != nil {
 		dglogger.Errorf(ctx, "select inbox failed | err: %v", err)
@@ -180,7 +180,7 @@ func (c *ImapEmailClient) SearchByCriteria(ctx *dgctx.DgContext, criteria *imap.
 	seqSet := new(imap.SeqSet)
 	seqSet.AddRange(seqNums[0], seqNums[len(seqNums)-1]+1)
 
-	messages := make(chan *imap.Message, 10)
+	messages := make(chan *imap.Message, fetchCapacity)
 	done := make(chan error)
 	go func() {
 		done <- c.client.Fetch(seqSet, fetchItems, messages)
