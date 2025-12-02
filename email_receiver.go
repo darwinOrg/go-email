@@ -215,48 +215,49 @@ func filterAndParseMessage(ctx *dgctx.DgContext, msg *imap.Message, criteria *Se
 		return nil, nil
 	}
 
-	envelope := msg.Envelope
-
-	if criteria.Subject != "" {
-		if !strings.Contains(envelope.Subject, criteria.Subject) {
-			return nil, nil
-		}
-	}
-
-	if !criteria.Since.IsZero() {
-		if envelope.Date.Before(criteria.Since) {
-			return nil, nil
-		}
-	}
-
-	if !criteria.SentSince.IsZero() {
-		if envelope.Date.Before(criteria.SentSince) {
-			return nil, nil
-		}
-	}
-
 	emailDTO := &ReceiveEmailDTO{}
 
-	// 基本信息
-	emailDTO.EmailAddress = envelope.To[0].Address()
-	emailDTO.SendDate = envelope.Date.String()
-	emailDTO.Subject = envelope.Subject
+	envelope := msg.Envelope
+	if envelope != nil {
+		if criteria.Subject != "" {
+			if !strings.Contains(envelope.Subject, criteria.Subject) {
+				return nil, nil
+			}
+		}
 
-	// 收件人
-	for _, addr := range envelope.To {
-		emailDTO.ToName = append(emailDTO.ToName, addr.PersonalName)
-		emailDTO.ToAddress = append(emailDTO.ToAddress, addr.Address())
-	}
+		if !criteria.Since.IsZero() {
+			if envelope.Date.Before(criteria.Since) {
+				return nil, nil
+			}
+		}
 
-	// 发件人
-	fromAddr := envelope.From[0]
-	emailDTO.FromName = fromAddr.PersonalName
-	emailDTO.FromAddress = fromAddr.Address()
+		if !criteria.SentSince.IsZero() {
+			if envelope.Date.Before(criteria.SentSince) {
+				return nil, nil
+			}
+		}
 
-	// 抄送人
-	for _, addr := range envelope.Cc {
-		emailDTO.CcName = append(emailDTO.CcName, addr.PersonalName)
-		emailDTO.CcAddress = append(emailDTO.CcAddress, addr.Address())
+		// 基本信息
+		emailDTO.EmailAddress = envelope.To[0].Address()
+		emailDTO.SendDate = envelope.Date.String()
+		emailDTO.Subject = envelope.Subject
+
+		// 收件人
+		for _, addr := range envelope.To {
+			emailDTO.ToName = append(emailDTO.ToName, addr.PersonalName)
+			emailDTO.ToAddress = append(emailDTO.ToAddress, addr.Address())
+		}
+
+		// 发件人
+		fromAddr := envelope.From[0]
+		emailDTO.FromName = fromAddr.PersonalName
+		emailDTO.FromAddress = fromAddr.Address()
+
+		// 抄送人
+		for _, addr := range envelope.Cc {
+			emailDTO.CcName = append(emailDTO.CcName, addr.PersonalName)
+			emailDTO.CcAddress = append(emailDTO.CcAddress, addr.Address())
+		}
 	}
 
 	body := msg.GetBody(&imap.BodySectionName{})
