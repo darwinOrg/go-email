@@ -1,10 +1,11 @@
 package email
 
 import (
-	dgctx "github.com/darwinOrg/go-common/context"
-	dglogger "github.com/darwinOrg/go-logger"
 	"os"
 	"testing"
+
+	dgctx "github.com/darwinOrg/go-common/context"
+	dglogger "github.com/darwinOrg/go-logger"
 )
 
 func TestSendEmail(t *testing.T) {

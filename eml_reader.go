@@ -2,14 +2,15 @@ package email
 
 import (
 	"bytes"
-	dgctx "github.com/darwinOrg/go-common/context"
-	"github.com/darwinOrg/go-common/utils"
-	dglogger "github.com/darwinOrg/go-logger"
-	"github.com/jhillyerd/enmime/v2"
 	"io"
 	"os"
 	"path"
 	"strings"
+
+	dgctx "github.com/darwinOrg/go-common/context"
+	"github.com/darwinOrg/go-common/utils"
+	dglogger "github.com/darwinOrg/go-logger"
+	"github.com/jhillyerd/enmime/v2"
 )
 
 type EmlContent struct {

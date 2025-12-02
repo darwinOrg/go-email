@@ -3,11 +3,12 @@ package email
 import (
 	"crypto/tls"
 	"encoding/json"
+	"time"
+
 	dgctx "github.com/darwinOrg/go-common/context"
 	dglogger "github.com/darwinOrg/go-logger"
 	"github.com/darwinOrg/go-monitor"
 	"gopkg.in/gomail.v2"
-	"time"
 )
 
 type SendEmailClient struct {
