@@ -220,8 +220,11 @@ func filterAndParseMessage(ctx *dgctx.DgContext, msg *imap.Message, criteria *Se
 	envelope := msg.Envelope
 	if envelope != nil {
 		if criteria.Subject != "" {
-			if !strings.Contains(envelope.Subject, criteria.Subject) {
-				return nil, nil
+			parts := strings.Split(criteria.Subject, " ")
+			for _, part := range parts {
+				if !strings.Contains(envelope.Subject, part) {
+					return nil, nil
+				}
 			}
 		}
 
